@@ -1,0 +1,16 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+}
+
+body {
+  background: #faf6f7;
+  color: #2c2326;
+}
+
+input[type="range"] {
+  accent-color: #b56576;
+}
