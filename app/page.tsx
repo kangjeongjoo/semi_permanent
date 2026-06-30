@@ -16,6 +16,7 @@ import {
   undertoneLabel,
   type Recommendation,
 } from "@/lib/recommend";
+import { aiRecommendHybrid, aiRecommendDirect } from "@/lib/aiRecommend";
 import { saveDesign, listDesigns, deleteDesign } from "@/lib/storage";
 import {
   applyOverrides,
@@ -64,6 +65,32 @@ export default function Home() {
   const [afterUrl, setAfterUrl] = useState("");
   const [saved, setSaved] = useState<SavedDesign[]>([]);
   const [galleryOpen, setGalleryOpen] = useState(false);
+
+  // AI 분석 옵션 (선택)
+  const [analysisMode, setAnalysisMode] = useState<"hybrid" | "direct">("hybrid");
+  const [apiKey, setApiKey] = useState("");
+  const [aiBusy, setAiBusy] = useState(false);
+  const [aiError, setAiError] = useState("");
+  const [recSource, setRecSource] = useState<"rule" | "ai">("rule");
+
+  // 키/모드 로컬 저장
+  useEffect(() => {
+    try {
+      setApiKey(localStorage.getItem("anthropic_key") ?? "");
+      const m = localStorage.getItem("ai_mode");
+      if (m === "hybrid" || m === "direct") setAnalysisMode(m);
+    } catch {
+      /* 무시 */
+    }
+  }, []);
+  useEffect(() => {
+    try {
+      localStorage.setItem("anthropic_key", apiKey);
+      localStorage.setItem("ai_mode", analysisMode);
+    } catch {
+      /* 무시 */
+    }
+  }, [apiKey, analysisMode]);
 
   // 점 수정이 반영된 유효 랜드마크
   const effLandmarks = useMemo(
@@ -138,6 +165,8 @@ export default function Home() {
         setLandmarks(lm);
         const r = recommend(lm, w, h, imgData);
         setRec(r);
+        setRecSource("rule");
+        setAiError("");
         setSettings({ brow: r.brows[0].settings, lip: r.lips[0].settings });
         setShow({ brow: true, lip: true });
         setStatus("ready");
@@ -178,6 +207,32 @@ export default function Home() {
       setSettings({ brow: rec.brows[0].settings, lip: rec.lips[0].settings });
       setShow({ brow: true, lip: true });
       setOverrides({});
+    }
+  };
+
+  const runAi = async () => {
+    if (!rec) return;
+    if (!apiKey.trim()) {
+      setAiError("Anthropic API 키를 입력해 주세요.");
+      return;
+    }
+    setAiBusy(true);
+    setAiError("");
+    try {
+      const result =
+        analysisMode === "direct"
+          ? await aiRecommendDirect(apiKey.trim(), beforeUrl, rec.metrics, rec.quality)
+          : await aiRecommendHybrid(apiKey.trim(), rec.metrics, rec.quality);
+      setRec(result);
+      setRecSource("ai");
+      setSettings({ brow: result.brows[0].settings, lip: result.lips[0].settings });
+      setShow({ brow: true, lip: true });
+      setOverrides({});
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      setAiError(`AI 분석 실패: ${msg}`);
+    } finally {
+      setAiBusy(false);
     }
   };
 
@@ -456,6 +511,11 @@ export default function Home() {
               <div className="flex items-center justify-between mb-2">
                 <h3 className="text-sm font-semibold text-brand-dark">
                   ✨ AI 추천
+                  <span className="ml-2 text-[10px] font-normal text-neutral-500 align-middle">
+                    {recSource === "ai"
+                      ? `AI 분석(${analysisMode === "direct" ? "사진" : "하이브리드"})`
+                      : "규칙 기반"}
+                  </span>
                 </h3>
                 <button
                   onClick={applyRecommendation}
@@ -524,10 +584,65 @@ export default function Home() {
                 ))}
               </div>
 
+              {/* 정밀 분석 (선택) */}
+              <details className="mt-3 border-t border-brand-light pt-3">
+                <summary className="text-xs font-medium text-brand-dark cursor-pointer">
+                  🔬 AI로 더 정밀하게 분석 (선택)
+                </summary>
+                <div className="mt-2">
+                  <div className="flex gap-1.5 mb-2">
+                    <button
+                      onClick={() => setAnalysisMode("hybrid")}
+                      className={`flex-1 text-[11px] rounded-lg py-1.5 border ${
+                        analysisMode === "hybrid"
+                          ? "bg-brand text-white border-brand"
+                          : "border-neutral-300"
+                      }`}
+                    >
+                      하이브리드 (수치만)
+                    </button>
+                    <button
+                      onClick={() => setAnalysisMode("direct")}
+                      className={`flex-1 text-[11px] rounded-lg py-1.5 border ${
+                        analysisMode === "direct"
+                          ? "bg-brand text-white border-brand"
+                          : "border-neutral-300"
+                      }`}
+                    >
+                      AI 직접 (사진 전송)
+                    </button>
+                  </div>
+                  <input
+                    type="password"
+                    value={apiKey}
+                    onChange={(e) => setApiKey(e.target.value)}
+                    placeholder="Anthropic API 키 (sk-ant-...)"
+                    className="w-full text-xs border border-neutral-300 rounded-lg px-2.5 py-1.5 mb-2"
+                  />
+                  <button
+                    onClick={runAi}
+                    disabled={aiBusy}
+                    className="w-full text-xs bg-brand-dark text-white rounded-lg py-1.5 disabled:opacity-50"
+                  >
+                    {aiBusy ? "분석 중…" : "AI 분석 실행"}
+                  </button>
+                  {aiError && (
+                    <p className="text-[11px] text-red-500 mt-1.5">{aiError}</p>
+                  )}
+                  <p className="text-[10px] text-neutral-400 mt-2 leading-relaxed">
+                    {analysisMode === "direct"
+                      ? "‘AI 직접’은 사진이 Anthropic 서버로 전송됩니다."
+                      : "‘하이브리드’는 사진을 보내지 않고 측정 수치만 전송합니다."}{" "}
+                    API 키는 이 기기(브라우저)에만 저장됩니다. 공용 PC에서는 사용을 권장하지
+                    않아요.
+                  </p>
+                </div>
+              </details>
+
               <p className="text-[11px] text-neutral-400 mt-3">
                 추천은 출발점이에요. 항목을 눌러 적용하고, 슬라이더·점 수정·직접
-                그리기로 자유롭게 바꿔보세요. 퍼스널컬러는 사진 조명에 따라 달라질 수
-                있어 참고용입니다.
+                그리기로 자유롭게 바꿔보세요. 규칙 기반 추천은 키 없이 어디서나
+                동작합니다.
               </p>
             </div>
           )}
