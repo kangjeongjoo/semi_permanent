@@ -10,7 +10,12 @@ import type {
 } from "@/lib/types";
 import { DEFAULT_BROW, DEFAULT_LIP } from "@/lib/designLibrary";
 import { drawComposite } from "@/lib/compositor";
-import { recommend, faceShapeLabel, type Recommendation } from "@/lib/recommend";
+import {
+  recommend,
+  faceShapeLabel,
+  undertoneLabel,
+  type Recommendation,
+} from "@/lib/recommend";
 import { saveDesign, listDesigns, deleteDesign } from "@/lib/storage";
 import {
   applyOverrides,
@@ -113,6 +118,13 @@ export default function Home() {
       const ctx = canvas.getContext("2d")!;
       ctx.drawImage(img, 0, 0, w, h);
       setBeforeUrl(canvas.toDataURL("image/jpeg", 0.92));
+      // 피부 언더톤 분석용 픽셀 (기기 내에서만 사용)
+      let imgData: ImageData | null = null;
+      try {
+        imgData = ctx.getImageData(0, 0, w, h);
+      } catch {
+        imgData = null;
+      }
 
       try {
         const { detectFace } = await import("@/lib/faceLandmarker");
@@ -124,9 +136,9 @@ export default function Home() {
           return;
         }
         setLandmarks(lm);
-        const r = recommend(lm, w, h);
+        const r = recommend(lm, w, h, imgData);
         setRec(r);
-        setSettings({ brow: r.brow, lip: r.lip });
+        setSettings({ brow: r.brows[0].settings, lip: r.lips[0].settings });
         setShow({ brow: true, lip: true });
         setStatus("ready");
       } catch (e) {
@@ -163,7 +175,7 @@ export default function Home() {
 
   const applyRecommendation = () => {
     if (rec) {
-      setSettings({ brow: rec.brow, lip: rec.lip });
+      setSettings({ brow: rec.brows[0].settings, lip: rec.lips[0].settings });
       setShow({ brow: true, lip: true });
       setOverrides({});
     }
@@ -443,21 +455,79 @@ export default function Home() {
             <div className="mt-3 bg-brand-light/30 border border-brand-light rounded-xl p-4">
               <div className="flex items-center justify-between mb-2">
                 <h3 className="text-sm font-semibold text-brand-dark">
-                  ✨ AI 추천 (얼굴형: {faceShapeLabel(rec.metrics.shape)})
+                  ✨ AI 추천
                 </h3>
                 <button
                   onClick={applyRecommendation}
                   className="text-xs text-brand-dark underline"
                 >
-                  추천값으로 되돌리기
+                  1순위로 되돌리기
                 </button>
               </div>
-              <ul className="text-xs text-neutral-600 space-y-1">
-                <li>• 눈썹: {rec.browReason}</li>
-                <li>• 입술: {rec.lipReason}</li>
-              </ul>
-              <p className="text-[11px] text-neutral-400 mt-2">
-                추천은 출발점이에요. 슬라이더·점 수정·직접 그리기로 자유롭게 바꿔보세요.
+              <div className="flex flex-wrap gap-1.5 mb-3">
+                <span className="text-[11px] bg-white/70 border border-brand-light rounded-full px-2 py-0.5">
+                  얼굴형: {faceShapeLabel(rec.metrics.shape)}
+                </span>
+                <span className="text-[11px] bg-white/70 border border-brand-light rounded-full px-2 py-0.5">
+                  퍼스널컬러: {undertoneLabel(rec.metrics.undertone)}
+                </span>
+                <span className="text-[11px] bg-white/70 border border-brand-light rounded-full px-2 py-0.5">
+                  입술: {rec.metrics.lipFullness === "thin" ? "얇은 편" : rec.metrics.lipFullness === "full" ? "도톰한 편" : "보통"}
+                </span>
+              </div>
+
+              {!rec.quality.frontal && (
+                <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5 mb-3">
+                  ⚠️ {rec.quality.message}
+                </p>
+              )}
+
+              {/* 눈썹 추천 3개 */}
+              <p className="text-xs font-medium text-neutral-700 mb-1.5">추천 눈썹</p>
+              <div className="space-y-1.5 mb-3">
+                {rec.brows.map((o) => (
+                  <button
+                    key={o.id}
+                    onClick={() =>
+                      setSettings((s) => ({ ...s, brow: o.settings }))
+                    }
+                    className="w-full text-left bg-white/70 hover:bg-white border border-neutral-200 hover:border-brand/50 rounded-lg px-2.5 py-1.5 transition"
+                  >
+                    <span className="text-xs font-medium text-brand-dark">
+                      {o.label}
+                    </span>
+                    <span className="block text-[11px] text-neutral-500 leading-snug">
+                      {o.reason}
+                    </span>
+                  </button>
+                ))}
+              </div>
+
+              {/* 입술 추천 3개 */}
+              <p className="text-xs font-medium text-neutral-700 mb-1.5">추천 입술</p>
+              <div className="space-y-1.5">
+                {rec.lips.map((o) => (
+                  <button
+                    key={o.id}
+                    onClick={() =>
+                      setSettings((s) => ({ ...s, lip: o.settings }))
+                    }
+                    className="w-full text-left bg-white/70 hover:bg-white border border-neutral-200 hover:border-brand/50 rounded-lg px-2.5 py-1.5 transition"
+                  >
+                    <span className="text-xs font-medium text-brand-dark">
+                      {o.label}
+                    </span>
+                    <span className="block text-[11px] text-neutral-500 leading-snug">
+                      {o.reason}
+                    </span>
+                  </button>
+                ))}
+              </div>
+
+              <p className="text-[11px] text-neutral-400 mt-3">
+                추천은 출발점이에요. 항목을 눌러 적용하고, 슬라이더·점 수정·직접
+                그리기로 자유롭게 바꿔보세요. 퍼스널컬러는 사진 조명에 따라 달라질 수
+                있어 참고용입니다.
               </p>
             </div>
           )}

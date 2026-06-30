@@ -86,4 +86,6 @@ export interface FaceMetrics {
   eyeSpacing: "narrow" | "normal" | "wide";
   lipFullness: "thin" | "normal" | "full";
   faceRatio: number; // 세로/가로
+  undertone: "warm" | "cool" | "neutral"; // 퍼스널 컬러 언더톤
+  eyeTilt: "upturned" | "neutral" | "downturned"; // 눈꼬리 기울기
 }
