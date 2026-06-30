@@ -117,11 +117,17 @@ async function callClaude(
   apiKey: string,
   content: unknown[]
 ): Promise<AIResult> {
+  // 헤더는 ASCII만 허용 — 복사 시 섞인 공백·전각 문자 등 비ASCII 제거
+  const cleanKey = apiKey.replace(/[^\x21-\x7E]/g, "");
+  if (!cleanKey) throw new Error("API 키가 비어 있거나 형식이 올바르지 않습니다.");
+  if (!cleanKey.startsWith("sk-"))
+    throw new Error("API 키 형식이 올바르지 않습니다. ‘sk-ant-’로 시작해야 합니다.");
+
   const res = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: {
       "content-type": "application/json",
-      "x-api-key": apiKey,
+      "x-api-key": cleanKey,
       "anthropic-version": "2023-06-01",
       "anthropic-dangerous-direct-browser-access": "true",
     },
