@@ -59,6 +59,7 @@ export default function Home() {
 
   const [view, setView] = useState<View>("edit");
   const [tool, setTool] = useState<Tool>("adjust");
+  const [showGuide, setShowGuide] = useState(false);
   const [freehand, setFreehand] = useState<Stroke[]>([]);
   const [overrides, setOverrides] = useState<LandmarkOverrides>({});
   const [brush, setBrush] = useState<BrushState>(DEFAULT_BRUSH);
@@ -117,8 +118,8 @@ export default function Home() {
     const canvas = canvasRef.current;
     const img = imageRef.current;
     if (!canvas || !img) return;
-    drawComposite(canvas, img, effLandmarks, settings, show, freehand);
-  }, [effLandmarks, settings, show, freehand]);
+    drawComposite(canvas, img, effLandmarks, settings, show, freehand, showGuide);
+  }, [effLandmarks, settings, show, freehand, showGuide]);
 
   useEffect(() => {
     if (status === "ready" && view === "edit") render();
@@ -501,6 +502,38 @@ export default function Home() {
                     >
                       점 초기화
                     </button>
+                  )}
+                </div>
+              )}
+
+              {/* 눈썹 황금비 가이드 토글 */}
+              {view === "edit" && landmarks && (
+                <div className="flex items-center gap-2 mt-2 flex-wrap">
+                  <button
+                    onClick={() => setShowGuide((g) => !g)}
+                    className={`text-xs px-3 py-1.5 rounded-full border ${
+                      showGuide
+                        ? "bg-brand-light/60 border-brand text-brand-dark font-medium"
+                        : "border-neutral-300 text-neutral-600"
+                    }`}
+                  >
+                    📐 황금비 가이드 {showGuide ? "끄기" : "켜기"}
+                  </button>
+                  {showGuide && (
+                    <span className="text-[11px] text-neutral-500 flex items-center gap-2">
+                      <span className="flex items-center gap-1">
+                        <i className="w-2.5 h-2.5 rounded-full inline-block" style={{ background: "#26a0b4" }} />
+                        시작
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <i className="w-2.5 h-2.5 rounded-full inline-block" style={{ background: "#b56576" }} />
+                        아치
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <i className="w-2.5 h-2.5 rounded-full inline-block" style={{ background: "#786ed2" }} />
+                        꼬리
+                      </span>
+                    </span>
                   )}
                 </div>
               )}

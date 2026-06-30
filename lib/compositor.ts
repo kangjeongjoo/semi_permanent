@@ -2,6 +2,7 @@
 import type { Landmark } from "./faceLandmarker";
 import type { BrowSettings, LipSettings, DesignSettings, Stroke } from "./types";
 import {
+  toPx,
   toPxList,
   dist,
   type Pt,
@@ -11,6 +12,10 @@ import {
   BROW_RIGHT_BOTTOM,
   BROW_LEFT_TOP,
   BROW_LEFT_BOTTOM,
+  EYE_RIGHT_INNER,
+  EYE_RIGHT_OUTER,
+  EYE_LEFT_INNER,
+  EYE_LEFT_OUTER,
 } from "./landmarks";
 import { hexToRgb, adjustColor, rgba, type RGB } from "./color";
 import type { BrowShape } from "./types";
@@ -370,6 +375,75 @@ function drawFreehand(
   ctx.drawImage(off, 0, 0);
 }
 
+// ---------- 눈썹 황금비 가이드 ----------
+
+function drawGuides(
+  ctx: CanvasRenderingContext2D,
+  landmarks: Landmark[],
+  w: number,
+  h: number
+) {
+  const nose = toPx(landmarks, 2, w, h); // 코 밑 중앙
+  const sides = [
+    { inner: EYE_RIGHT_INNER, outer: EYE_RIGHT_OUTER, brow: BROW_RIGHT_TOP },
+    { inner: EYE_LEFT_INNER, outer: EYE_LEFT_OUTER, brow: BROW_LEFT_TOP },
+  ];
+  const lw = Math.max(1, w / 700);
+  const dotR = Math.max(2.5, w / 200);
+
+  const line = (x1: number, y1: number, x2: number, y2: number) => {
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
+    ctx.stroke();
+  };
+  const dot = (x: number, y: number, color: string) => {
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.arc(x, y, dotR, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.lineWidth = lw;
+    ctx.strokeStyle = "rgba(255,255,255,0.9)";
+    ctx.stroke();
+  };
+
+  ctx.save();
+  ctx.lineWidth = lw;
+  for (const s of sides) {
+    const inner = toPx(landmarks, s.inner, w, h);
+    const outer = toPx(landmarks, s.outer, w, h);
+    const browPts = s.brow.map((i) => toPx(landmarks, i, w, h));
+    const browTopY = Math.min(...browPts.map((p) => p.y));
+    const yTop = browTopY - Math.abs(inner.y - browTopY) * 0.45;
+    const yBottom = inner.y;
+
+    const headX = inner.x; // 시작점: 안쪽 눈머리 수직선
+    const peakX = inner.x + (outer.x - inner.x) * 0.66; // 아치 피크: 눈동자 바깥쪽
+
+    // 시작점(시안)
+    ctx.setLineDash([5, 4]);
+    ctx.strokeStyle = "rgba(38,160,180,0.9)";
+    line(headX, yTop, headX, yBottom);
+    // 아치 피크(브랜드 색)
+    ctx.strokeStyle = "rgba(181,101,118,0.95)";
+    line(peakX, yTop, peakX, yBottom);
+    // 꼬리: 코밑 → 눈꼬리 연장선
+    const dx = outer.x - nose.x;
+    const dy = outer.y - nose.y;
+    const len = Math.hypot(dx, dy) || 1;
+    const ex = outer.x + (dx / len) * (len * 0.42);
+    const ey = outer.y + (dy / len) * (len * 0.42);
+    ctx.strokeStyle = "rgba(120,110,210,0.9)";
+    line(outer.x, outer.y, ex, ey);
+
+    ctx.setLineDash([]);
+    dot(headX, browTopY, "#26a0b4");
+    dot(peakX, browTopY, "#b56576");
+    dot(ex, ey, "#786ed2");
+  }
+  ctx.restore();
+}
+
 // ---------- 공개 API ----------
 
 export function drawComposite(
@@ -378,7 +452,8 @@ export function drawComposite(
   landmarks: Landmark[] | null,
   settings: DesignSettings,
   show: { brow: boolean; lip: boolean },
-  freehand?: Stroke[]
+  freehand?: Stroke[],
+  guide?: boolean
 ) {
   const w = canvas.width;
   const h = canvas.height;
@@ -391,4 +466,6 @@ export function drawComposite(
   }
   // 자유 브러시는 항상 맨 위에 (얼굴 미검출 시에도 그릴 수 있음)
   if (freehand && freehand.length > 0) drawFreehand(ctx, freehand, w, h);
+  // 황금비 가이드는 최상단
+  if (guide && landmarks) drawGuides(ctx, landmarks, w, h);
 }
