@@ -88,4 +88,8 @@ export interface FaceMetrics {
   faceRatio: number; // 세로/가로
   undertone: "warm" | "cool" | "neutral"; // 퍼스널 컬러 언더톤
   eyeTilt: "upturned" | "neutral" | "downturned"; // 눈꼬리 기울기
+  browPosition: "low" | "balanced" | "high"; // 눈썹–눈 거리
+  eyeSize: "small" | "average" | "large"; // 눈 크기
+  asymmetry: "even" | "slight" | "noticeable"; // 좌우 눈썹 높이 비대칭
+  depth: "light" | "medium" | "deep"; // 피부 명도
 }

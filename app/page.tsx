@@ -14,6 +14,8 @@ import {
   recommend,
   faceShapeLabel,
   undertoneLabel,
+  depthLabel,
+  browPosLabel,
   type Recommendation,
 } from "@/lib/recommend";
 import { aiRecommendHybrid, aiRecommendDirect } from "@/lib/aiRecommend";
@@ -532,8 +534,22 @@ export default function Home() {
                   퍼스널컬러: {undertoneLabel(rec.metrics.undertone)}
                 </span>
                 <span className="text-[11px] bg-white/70 border border-brand-light rounded-full px-2 py-0.5">
+                  피부톤: {depthLabel(rec.metrics.depth)}
+                </span>
+                <span className="text-[11px] bg-white/70 border border-brand-light rounded-full px-2 py-0.5">
+                  눈썹위치: {browPosLabel(rec.metrics.browPosition)}
+                </span>
+                <span className="text-[11px] bg-white/70 border border-brand-light rounded-full px-2 py-0.5">
+                  눈: {rec.metrics.eyeSize === "large" ? "큰 편" : rec.metrics.eyeSize === "small" ? "작은 편" : "보통"}
+                </span>
+                <span className="text-[11px] bg-white/70 border border-brand-light rounded-full px-2 py-0.5">
                   입술: {rec.metrics.lipFullness === "thin" ? "얇은 편" : rec.metrics.lipFullness === "full" ? "도톰한 편" : "보통"}
                 </span>
+                {rec.metrics.asymmetry !== "even" && (
+                  <span className="text-[11px] bg-amber-50 border border-amber-200 text-amber-700 rounded-full px-2 py-0.5">
+                    좌우 비대칭: {rec.metrics.asymmetry === "noticeable" ? "있는 편" : "약간"}
+                  </span>
+                )}
               </div>
 
               {!rec.quality.frontal && (
