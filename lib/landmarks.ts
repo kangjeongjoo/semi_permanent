@@ -66,3 +66,23 @@ export function toPxList(
 export function dist(a: Pt, b: Pt): number {
   return Math.hypot(a.x - b.x, a.y - b.y);
 }
+
+// 점 수정 모드에서 드래그 가능한 핸들 인덱스
+export const EDITABLE_BROW_INDICES = [
+  ...BROW_RIGHT_TOP,
+  ...BROW_RIGHT_BOTTOM,
+  ...BROW_LEFT_TOP,
+  ...BROW_LEFT_BOTTOM,
+];
+export const EDITABLE_LIP_INDICES = LIPS_OUTER;
+
+// 검출된 랜드마크에 사용자 수정(overrides)을 적용한 새 배열 반환
+export function applyOverrides<T extends { x: number; y: number; z?: number }>(
+  landmarks: T[],
+  overrides: Record<number, { x: number; y: number }>
+): T[] {
+  if (!overrides || Object.keys(overrides).length === 0) return landmarks;
+  return landmarks.map((l, i) =>
+    overrides[i] ? { ...l, x: overrides[i].x, y: overrides[i].y } : l
+  );
+}

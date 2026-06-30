@@ -56,6 +56,18 @@ export interface LipTemplate {
   defaults: Partial<LipSettings>;
 }
 
+// 자유 브러시 획 (좌표는 정규화 0~1, size는 캔버스 너비 대비 비율)
+export interface Stroke {
+  tool: "draw" | "erase";
+  color: string;
+  size: number; // 0~1 (캔버스 너비 비율)
+  opacity: number; // 0~1
+  points: { x: number; y: number }[];
+}
+
+// 랜드마크 점 수정값 (인덱스 → 정규화 좌표)
+export type LandmarkOverrides = Record<number, { x: number; y: number }>;
+
 // 저장된 시안
 export interface SavedDesign {
   id: string;
@@ -63,6 +75,9 @@ export interface SavedDesign {
   createdAt: number;
   thumbnail: string; // dataURL
   settings: DesignSettings;
+  freehand?: Stroke[];
+  overrides?: LandmarkOverrides;
+  show?: { brow: boolean; lip: boolean };
 }
 
 // 얼굴 분석 결과

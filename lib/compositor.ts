@@ -1,6 +1,6 @@
 // Canvas 합성 — 원본 이미지 위에 눈썹(파라메트릭)과 입술(색 블렌딩)을 그린다.
 import type { Landmark } from "./faceLandmarker";
-import type { BrowSettings, LipSettings, DesignSettings } from "./types";
+import type { BrowSettings, LipSettings, DesignSettings, Stroke } from "./types";
 import {
   toPxList,
   dist,
@@ -326,6 +326,50 @@ function drawLips(
   ctx.restore();
 }
 
+// ---------- 자유 브러시 ----------
+
+function drawFreehand(
+  ctx: CanvasRenderingContext2D,
+  strokes: Stroke[],
+  w: number,
+  h: number
+) {
+  const off = document.createElement("canvas");
+  off.width = w;
+  off.height = h;
+  const o = off.getContext("2d")!;
+  o.lineJoin = "round";
+  o.lineCap = "round";
+  for (const s of strokes) {
+    if (s.points.length === 0) continue;
+    const lw = Math.max(1, s.size * w);
+    if (s.tool === "erase") {
+      o.globalCompositeOperation = "destination-out";
+      o.strokeStyle = "rgba(0,0,0,1)";
+      o.fillStyle = "rgba(0,0,0,1)";
+    } else {
+      o.globalCompositeOperation = "source-over";
+      o.strokeStyle = rgba(hexToRgb(s.color), s.opacity);
+      o.fillStyle = rgba(hexToRgb(s.color), s.opacity);
+    }
+    o.lineWidth = lw;
+    if (s.points.length === 1) {
+      const p = s.points[0];
+      o.beginPath();
+      o.arc(p.x * w, p.y * h, lw / 2, 0, Math.PI * 2);
+      o.fill();
+      continue;
+    }
+    o.beginPath();
+    o.moveTo(s.points[0].x * w, s.points[0].y * h);
+    for (let i = 1; i < s.points.length; i++) {
+      o.lineTo(s.points[i].x * w, s.points[i].y * h);
+    }
+    o.stroke();
+  }
+  ctx.drawImage(off, 0, 0);
+}
+
 // ---------- 공개 API ----------
 
 export function drawComposite(
@@ -333,14 +377,18 @@ export function drawComposite(
   image: HTMLImageElement | HTMLCanvasElement,
   landmarks: Landmark[] | null,
   settings: DesignSettings,
-  show: { brow: boolean; lip: boolean }
+  show: { brow: boolean; lip: boolean },
+  freehand?: Stroke[]
 ) {
   const w = canvas.width;
   const h = canvas.height;
   const ctx = canvas.getContext("2d")!;
   ctx.clearRect(0, 0, w, h);
   ctx.drawImage(image, 0, 0, w, h);
-  if (!landmarks) return;
-  if (show.lip) drawLips(ctx, landmarks, w, h, settings.lip);
-  if (show.brow) drawBrows(ctx, landmarks, w, h, settings.brow);
+  if (landmarks) {
+    if (show.lip) drawLips(ctx, landmarks, w, h, settings.lip);
+    if (show.brow) drawBrows(ctx, landmarks, w, h, settings.brow);
+  }
+  // 자유 브러시는 항상 맨 위에 (얼굴 미검출 시에도 그릴 수 있음)
+  if (freehand && freehand.length > 0) drawFreehand(ctx, freehand, w, h);
 }
