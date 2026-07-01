@@ -19,6 +19,7 @@ import {
   type Recommendation,
 } from "@/lib/recommend";
 import { aiRecommendHybrid, aiRecommendDirect } from "@/lib/aiRecommend";
+import { toDisplayableBlob } from "@/lib/imageLoad";
 import { saveDesign, listDesigns, deleteDesign } from "@/lib/storage";
 import {
   applyOverrides,
@@ -134,7 +135,19 @@ export default function Home() {
     setFreehand([]);
     setOverrides({});
 
-    const url = URL.createObjectURL(file);
+    // HEIC/HEIF(아이폰 기본 포맷)는 JPEG로 변환 후 처리
+    let blob: Blob = file;
+    try {
+      blob = await toDisplayableBlob(file);
+    } catch {
+      setErrorMsg(
+        "HEIC 이미지를 변환하지 못했습니다. 아이폰 설정에서 카메라 포맷을 ‘높은 호환성(JPEG)’으로 바꾸거나 JPG/PNG로 저장 후 올려주세요."
+      );
+      setStatus("error");
+      return;
+    }
+
+    const url = URL.createObjectURL(blob);
     const img = new Image();
     img.onload = async () => {
       const scale = Math.min(1, MAX_DIM / Math.max(img.naturalWidth, img.naturalHeight));
@@ -829,7 +842,7 @@ function UploadButton({
       {label}
       <input
         type="file"
-        accept="image/*"
+        accept="image/*,.heic,.heif"
         className="hidden"
         onChange={(e) => {
           const f = e.target.files?.[0];
